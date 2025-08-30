@@ -1,4 +1,4 @@
-Of course. Let's get this running on your local machine. The setup involves running the Python backend server and then accessing the web interface through your browser.
+Let's get this running on your local machine. The setup involves running the Python backend server and then accessing the web interface through your browser.
 
 Here is a step-by-step guide:
 

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Security Documentation Research</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-900 text-white font-sans">
+    <div class="container mx-auto p-4 flex flex-col h-screen">
+        <header class="text-center mb-6">
+            <h1 class="text-4xl font-bold text-cyan-400">Cyber Security RAG Chatbot</h1>
+            <p class="text-gray-400">Upload your cybersecurity documents and ask questions.</p>
+        </header>
+
+        <div class="flex-grow flex flex-col md:flex-row gap-6 min-h-0">
+            <!-- File Upload and Document List -->
+            <div class="md:w-1/3 flex flex-col bg-gray-800 p-6 rounded-2xl shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-cyan-300 border-b border-gray-700 pb-2">Upload Documents</h2>
+                <div id="upload-area" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-700 hover:border-cyan-400 transition-all">
+                    <input type="file" id="file-input" multiple class="hidden" accept=".pdf">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-500 mb-2"></i>
+                    <p class="text-gray-400">Drag & drop PDF files here or click to select</p>
+                </div>
+                <div id="upload-feedback" class="mt-4 h-6"></div>
+                <div class="mt-6 flex-grow flex flex-col min-h-0">
+                    <h3 class="text-xl font-semibold mb-3 text-cyan-300">Uploaded Documents</h3>
+                    <div id="document-list" class="space-y-2 flex-grow overflow-y-auto pr-2">
+                        <!-- Documents will be listed here -->
+                        <p class="text-gray-500">No documents uploaded yet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="md:w-2/3 flex flex-col bg-gray-800 rounded-2xl shadow-lg">
+                <div id="chat-window" class="flex-grow p-6 overflow-y-auto">
+                    <div class="flex items-start gap-3 justify-start mb-6">
+                        <div class="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-robot text-white"></i>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg rounded-tl-none max-w-xl">
+                            <p>Hello! I am your cybersecurity research assistant. Please upload your documents and I'll help you analyze them.</p>
+                        </div>
+                    </div>
+                    <!-- Chat messages will appear here -->
+                </div>
+                <div class="p-6 border-t border-gray-700">
+                    <div class="flex items-center bg-gray-700 rounded-lg p-2">
+                        <input type="text" id="user-input" class="flex-grow bg-transparent text-white placeholder-gray-400 focus:outline-none px-4" placeholder="Ask a question about your documents...">
+                        <button id="send-button" class="bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-2 px-4 rounded-lg transition-all disabled:bg-gray-500 disabled:cursor-not-allowed">
+                            <i class="fas fa-paper-plane"></i> Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const uploadFeedback = document.getElementById('upload-feedback');
+        const documentList = document.getElementById('document-list');
+        const chatWindow = document.getElementById('chat-window');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+
+        let uploadedFiles = new Set();
+        let isUploading = false;
+
+        // --- File Upload Logic ---
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.add('bg-gray-700', 'border-cyan-400'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('bg-gray-700', 'border-cyan-400'), false);
+        });
+
+        uploadArea.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function handleFiles(files) {
+            if (isUploading) {
+                displayFeedback('An upload is already in progress. Please wait.', 'text-yellow-400');
+                return;
+            }
+
+            const formData = new FormData();
+            let newFilesFound = false;
+
+            [...files].forEach(file => {
+                // Only allow PDF files
+                if (file.type !== 'application/pdf') {
+                    displayFeedback(`Skipping non-PDF file: ${file.name}`, 'text-yellow-400');
+                    return;
+                }
+                if (!uploadedFiles.has(file.name)) {
+                    formData.append('files', file);
+                    newFilesFound = true;
+                }
+            });
+
+            if (!newFilesFound) {
+                 displayFeedback('All selected files have already been uploaded.', 'text-yellow-400');
+                return;
+            }
+
+            isUploading = true;
+            displayFeedback('Uploading and processing files...', 'text-blue-400');
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayFeedback(data.message, 'text-green-400');
+                    updateDocumentList();
+                } else {
+                    displayFeedback(`Error: ${data.message}`, 'text-red-400');
+                }
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+                displayFeedback('An error occurred during upload.', 'text-red-400');
+            })
+            .finally(() => {
+                isUploading = false;
+            });
+        }
+
+        function displayFeedback(message, className) {
+            uploadFeedback.innerHTML = `<p class="${className}">${message}</p>`;
+            setTimeout(() => {
+                if (uploadFeedback.firstChild && uploadFeedback.firstChild.textContent === message) {
+                    uploadFeedback.innerHTML = '';
+                }
+            }, 5000);
+        }
+
+        async function updateDocumentList() {
+            try {
+                const response = await fetch('/documents');
+                const data = await response.json();
+
+                if (data.documents) {
+                    documentList.innerHTML = ''; // Clear current list
+                    uploadedFiles.clear();
+
+                    if(data.documents.length === 0){
+                         documentList.innerHTML = '<p class="text-gray-500">No documents uploaded yet.</p>';
+                    } else {
+                        data.documents.forEach(doc => {
+                            const docElement = document.createElement('div');
+                            docElement.className = 'flex justify-between items-center bg-gray-700 p-2 rounded-md animate-fade-in';
+                            docElement.innerHTML = `
+                                <span class="truncate pr-2"><i class="fas fa-file-pdf mr-2 text-cyan-400"></i>${doc}</span>
+                                <button class="text-red-500 hover:text-red-400 flex-shrink-0" onclick="deleteDocument('${doc}')"><i class="fas fa-trash-alt"></i></button>
+                            `;
+                            documentList.appendChild(docElement);
+                            uploadedFiles.add(doc);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching document list:', error);
+                documentList.innerHTML = '<p class="text-red-500">Could not load documents.</p>';
+            }
+        }
+
+        async function deleteDocument(filename) {
+            if (!confirm(`Are you sure you want to delete ${filename}? This will trigger a re-indexing of all documents.`)) return;
+
+            try {
+                const response = await fetch(`/delete/${filename}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) {
+                     displayFeedback(`Document '${filename}' deleted.`, 'text-green-400');
+                    await updateDocumentList();
+                } else {
+                     displayFeedback(`Error deleting file: ${data.message}`, 'text-red-400');
+                }
+            } catch (error) {
+                 console.error('Error deleting document:', error);
+                 displayFeedback('An error occurred while deleting the file.', 'text-red-400');
+            }
+        }
+
+
+        // --- Chat Logic ---
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const messageText = userInput.value.trim();
+            if (messageText === '' || sendButton.disabled) return;
+
+            appendMessage(messageText, 'user');
+            userInput.value = '';
+
+            showTypingIndicator();
+            sendButton.disabled = true;
+
+            fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: messageText }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                removeTypingIndicator();
+                appendMessage(data.reply, 'bot');
+            })
+            .catch(error => {
+                console.error('Chat error:', error);
+                removeTypingIndicator();
+                appendMessage('Sorry, I encountered an error. Please check the server logs and try again.', 'bot');
+            })
+            .finally(() => {
+                sendButton.disabled = false;
+            });
+        }
+
+        function appendMessage(text, sender) {
+            const messageWrapper = document.createElement('div');
+            const sanitizedText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+            if (sender === 'user') {
+                 messageWrapper.className = 'flex items-start gap-3 justify-end mb-6';
+                 messageWrapper.innerHTML = `
+                    <div class="bg-cyan-600 p-4 rounded-lg rounded-br-none max-w-xl">
+                        <p>${sanitizedText.replace(/\n/g, '<br>')}</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-user text-white"></i>
+                    </div>
+                `;
+            } else {
+                 messageWrapper.className = 'flex items-start gap-3 justify-start mb-6';
+                 messageWrapper.innerHTML = `
+                    <div class="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-white"></i>
+                    </div>
+                    <div class="bg-gray-700 p-4 rounded-lg rounded-tl-none max-w-xl">
+                        <p>${sanitizedText.replace(/\n/g, '<br>')}</p>
+                    </div>
+                `;
+            }
+            chatWindow.appendChild(messageWrapper);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.id = 'typing-indicator';
+            indicator.className = 'flex items-start gap-3 justify-start mb-6';
+            indicator.innerHTML = `
+                <div class="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-white"></i>
+                </div>
+                <div class="bg-gray-700 p-4 rounded-lg rounded-tl-none flex items-center space-x-2">
+                     <span class="typing-dot"></span>
+                     <span class="typing-dot" style="animation-delay: 0.2s;"></span>
+                     <span class="typing-dot" style="animation-delay: 0.4s;"></span>
+                </div>
+            `;
+            chatWindow.appendChild(indicator);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        // Initial load of document list
+        document.addEventListener('DOMContentLoaded', updateDocumentList);
+
+    </script>
+    <style>
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #a0aec0; /* gray-400 */
+            border-radius: 50%;
+            animation: typing-bounce 1.2s infinite ease-in-out;
+        }
+        @keyframes typing-bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1.0);
+            }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</body>
+</html>
+

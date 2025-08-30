@@ -2,7 +2,8 @@ flask
 werkzeug
 pypdf
 langchain
+langchain-community
+langchain-huggingface
 faiss-cpu
 sentence-transformers
 torch
-tensorflow

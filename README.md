@@ -1,84 +1,121 @@
-Let's get this running on your local machine. The setup involves running the Python backend server and then accessing the web interface through your browser.
+CyberSecureDocAI 🛡️🤖
 
-Here is a step-by-step guide:
+CyberSecureDocAI is a secure, private, and fully offline Retrieval-Augmented Generation (RAG) chatbot designed for querying your personal cybersecurity PDF documents. Built with Python, Flask, LangChain, and powered by a locally hosted Large Language Model (LLM), this application allows you to create an account, upload sensitive documents, and ask complex questions, receiving answers generated only from the content within those documents. All processing happens locally within a Docker container, ensuring your data never leaves your machine.
 
-### **Step 1: Organize Your Project Files**
+✨ Features
 
-First, make sure all the files are in the correct place. Create a single folder for your project (e.g., `rag-chatbot`) and organize it exactly like this:
+Secure User Accounts: Register and log in to keep your documents private.
 
-```
-rag-chatbot/
-├── app.py
-├── index.html
-├── requirements.txt
-└── uploads/       <-- Create this empty folder
-```
+Private Document Storage: Each user has their own isolated storage space for uploaded PDFs.
 
-It's crucial that `app.py` and `index.html` are in the same main directory and that you create an empty `uploads` folder.
+PDF Upload & Management: Easily upload new cybersecurity documents (PDF format) and delete old ones.
 
-### **Step 2: Install the Required Python Libraries**
+100% Offline RAG Pipeline:
 
-You'll need to install the Python libraries listed in `requirements.txt`. It's highly recommended to do this within a virtual environment to avoid conflicts with other projects.
+Retrieval: Uses FAISS vector search to find the most relevant text chunks from your documents based on your question.
 
-1.  **Open your terminal or command prompt.**
+Augmentation: Inserts the retrieved context into a carefully crafted prompt.
 
-2.  **Navigate into your project folder:**
+Generation: Uses a locally hosted LLM (Qwen2-1.5B-Instruct) via llama-cpp-python to generate answers strictly based on the provided context.
 
-    ```bash
-    cd path/to/your/rag-chatbot
-    ```
+Local AI Processing: All AI inference (text embedding and language generation) runs directly on your CPU within the Docker container. No external APIs or internet connection required after setup.
 
-3.  **Create and activate a virtual environment:**
+Containerized & Portable: Uses Docker for easy setup and consistent execution across different operating systems (Linux, macOS, Windows).
 
-      * **On macOS/Linux:**
-        ```bash
-        python3 -m venv venv
-        source venv/bin/activate
-        ```
-      * **On Windows:**
-        ```bash
-        python -m venv venv
-        .\venv\Scripts\activate
-        ```
+Clean Web Interface: A simple, intuitive web UI for document management and chat interaction.
 
-    You'll know it's active because your terminal prompt will change to show `(venv)`.
+🛠️ Technology Stack
 
-4.  **Install the libraries:**
+Backend: Python 3.11, Flask
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+AI Orchestration: LangChain, LangChain Community, LangChain Hugging Face
 
-    This step might take a few minutes as it will download the embedding model and other necessary packages.
+LLM Engine: llama-cpp-python
 
-### **Step 3: Run the Backend Server**
+LLM Model: Qwen/Qwen2-1.5B-Instruct-GGUF (Q4_K_M quantization)
 
-Now, with the libraries installed, you can start the Flask server.
+Embedding Model: sentence-transformers/all-MiniLM-L6-v2
 
-1.  Make sure you are still in your project folder (`rag-chatbot`) in the terminal, with the virtual environment active.
+Vector Database: FAISS (CPU version)
 
-2.  Run the following command:
+PDF Parsing: pypdf
 
-    ```bash
-    python app.py
-    ```
+User Database: SQLite3
 
-3.  You should see output in your terminal indicating the server is running, similar to this:
+Containerization: Docker
 
-    ```
-    Initializing embedding model...
-    Embedding model initialized.
-    * Serving Flask app 'app'
-    * Running on http://127.0.0.1:5000
-    Press CTRL+C to quit
-    ```
+Frontend: HTML, Tailwind CSS (via CDN), Vanilla JavaScript
 
-    **Do not close this terminal window.** The server needs to stay running for the application to work.
+🚀 Setup and Running
 
-### **Step 4: Use the Chatbot\!**
+This project is designed to run within a Docker container. Ensure you have Docker installed on your system.
 
-1.  Open your web browser (like Chrome, Firefox, or Edge).
-2.  Go to the following address:
-    [http://127.0.0.1:5000](https://www.google.com/url?sa=E&source=gmail&q=http://127.0.0.1:5000)
+1. Clone the Repository (or Download Files):
+Get all the project files (Dockerfile, app.py, index.html, requirements.txt) into a single directory on your machine.
 
-The Cyber Security RAG Chatbot interface should load, and you can now upload your PDF documents and start asking questions. The frontend (`index.html`) will communicate with your local backend server (`app.py`) to handle all the logic.
+2. Open Your Terminal:
+Navigate into the project directory using the cd command.
+
+cd /path/to/your/CyberSecureDocAI
+
+
+3. Build the Docker Image:
+This command builds the container image. This will take a significant amount of time on the first run as it needs to download base images, install dependencies, compile llama-cpp-python, and download both AI models.
+
+docker build -t cyberdocai .
+
+
+4. Run the Docker Container:
+This command starts the application. It creates a ./data folder in your project directory for persistent storage (user accounts, uploaded files, vector stores) and maps the application's port 5000.
+
+docker run --rm -it -p 5000:5000 -v ./data:/app/data cyberdocai
+
+
+--rm: Automatically remove the container when you stop it (Ctrl+C).
+
+-it: Run interactively so you can see server logs.
+
+-p 5000:5000: Map port 5000 on your host to port 5000 in the container.
+
+-v ./data:/app/data: Crucial! Mounts the local ./data directory into the container for persistent data storage.
+
+5. Access the Application:
+Open your web browser and navigate to:
+
+http://localhost:5000
+
+
+6. Register and Use:
+
+You will be prompted to create an account first.
+
+Log in with your new credentials.
+
+Upload your cybersecurity PDF documents using the "Upload Documents" button. Processing happens automatically after upload.
+
+Start asking questions in the chat window!
+
+7. Stopping the Application:
+Go back to the terminal where the container is running and press Control + C.
+
+⚙️ Architecture Overview
+
+The application follows a standard Retrieval-Augmented Generation (RAG) pattern:
+
+Ingestion: PDFs are uploaded, text is extracted and sanitized, split into chunks, converted to embeddings using all-MiniLM-L6-v2, and stored in a user-specific FAISS vector index.
+
+Retrieval: When a user asks a question, their query is embedded, and FAISS is searched to find the most semantically similar document chunks.
+
+Generation: The retrieved chunks (context) and the original question are formatted into a specific prompt template and sent to the local Qwen2 LLM. The LLM generates an answer based only on this context.
+
+⚠️ Troubleshooting
+
+Build Failures (Network): If the docker build command fails with network errors (e.g., "TLS handshake timeout"), check your system's internet connection, DNS settings, and any potential firewall or proxy configurations that might be blocking Docker's access to the internet. Restarting the Docker service might also help.
+
+Slow Responses: LLM inference on a CPU can be slow, especially with large contexts. Response times depend heavily on your CPU's performance. The Qwen2-1.5B model was chosen for a reasonable balance between capability and speed on typical hardware.
+
+Permission Denied (./data folder): If you encounter permission errors when the container tries to write to the ./data volume, you might need to adjust the folder permissions on your host machine or ensure Docker has the necessary rights. On Linux, running Docker commands with sudo initially or adding your user to the docker group usually resolves this.
+
+📄 License
+
+(Consider adding an open-source license here, e.g., MIT or Apache 2.0)
